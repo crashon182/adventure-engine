@@ -57,13 +57,15 @@ jobs:
             echo "=========================================="
 
             # --- PASO 3: Instalar y compilar ---
+            # No borramos .next antes de compilar para evitar 502 innecesarios
             $NODE_EXE $(which npm) install
             $NODE_EXE $(which npx) prisma generate
             $NODE_EXE $(which npx) prisma db push
-            rm -rf .next
+            
+            # Compilamos primero, la app vieja sigue corriendo en memoria
             NODE_OPTIONS="--max-old-space-size=2048" $NODE_EXE $(which npm) run build
 
-            # --- PASO 4: Reescribir ecosystem.config.js con la ruta correcta ---
+            # --- PASO 4: Asegurar ecosystem.config.js ---
             cat > ecosystem.config.js << EOFCONFIG
             module.exports = {
               apps: [{
@@ -80,12 +82,8 @@ jobs:
             };
             EOFCONFIG
 
-            # --- PASO 5: MATAR PM2 COMPLETAMENTE y reiniciar ---
-            # Esto destruye el demonio viejo que usa Node 12
-            # y lo recrea usando el Node actual del sistema
-            pm2 kill
-
-            # Ahora iniciamos con el ecosystem que tiene el interpreter correcto
-            $NODE_EXE $(which pm2) start ecosystem.config.js
+            # --- PASO 5: Reinicio quirúrgico ---
+            # NO usamos pm2 kill porque apaga todas tus otras webs (elbooz, academiaindie)
+            # Solo reiniciamos esta app específica usando el archivo de configuración
+            $NODE_EXE $(which pm2) start ecosystem.config.js || $NODE_EXE $(which pm2) reload ecosystem.config.js
             $NODE_EXE $(which pm2) save
-            $NODE_EXE $(which pm2) startup || true
