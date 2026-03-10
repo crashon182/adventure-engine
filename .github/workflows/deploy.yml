@@ -35,18 +35,22 @@ jobs:
               git pull origin main
             fi
             
-            # Instalar dependencias
-            npm install
+            # Forzar el uso del Node que vemos en la consola (v20+)
+            NODE_PATH=$(which node)
+            echo "Usando Node en: $NODE_PATH"
+            $NODE_PATH -v
             
-            # Sincronizar Base de Datos (Crea tablas nuevas como GlobalSettings)
-            npx prisma generate
-            npx prisma db push
+            # Instalar dependencias con el Node correcto
+            $NODE_PATH $(which npm) install
             
-            # Limpiar compilación anterior y construir (Asegura que aparezcan cambios visuales)
-            rm -rf .next
-            NODE_OPTIONS="--max-old-space-size=1536" npm run build
+            # Sincronizar Base de Datos
+            $NODE_PATH $(which npx) prisma generate
+            $NODE_PATH $(which npx) prisma db push
             
-            # Reiniciar PM2 para aplicar cambios
+            # Construir (con boost de memoria)
+            NODE_OPTIONS="--max-old-space-size=1536" $NODE_PATH $(which npm) run build
+            
+            # Reiniciar PM2 forzando el intérprete de Node actual
             pm2 delete adventure-engine || true
-            pm2 start npm --name "adventure-engine" --cwd "/home/adventurengine/htdocs/adventurengine.com" -- start -- -p 3002
+            pm2 start $NODE_PATH --name "adventure-engine" -- /home/adventurengine/htdocs/adventurengine.com/node_modules/next/dist/bin/next start -p 3002
             pm2 save
