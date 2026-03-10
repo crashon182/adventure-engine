@@ -1,33 +1,35 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
-    // Comprobamos si el modo mantenimiento está activo
-    const isMaintenanceMode = process.env.MAINTENANCE_MODE === 'true';
+export async function middleware(request: NextRequest) {
+    const { pathname } = request.nextUrl;
 
-    // Permitimos acceder a la ruta de mantenimiento directamente para no entrar en bucle infinito
-    if (request.nextUrl.pathname === '/mantenimiento') {
-        if (!isMaintenanceMode) {
-            // Si el sitio NO está en mantenimiento y tratan de entrar a /mantenimiento, los devolvemos al inicio
-            return NextResponse.redirect(new URL('/', request.url));
-        }
-        return NextResponse.next();
-    }
-
-    // Permitimos rutas esenciales (API públicas que sirvas, imágenes, admin, etc.)
-    // OJO: ajusta las rutas que quieras que siempre estén disponibles
+    // Rutas que siempre deben estar disponibles (Assets, API, Editor)
     if (
-        request.nextUrl.pathname.startsWith('/api') ||
-        request.nextUrl.pathname.startsWith('/_next') ||
-        request.nextUrl.pathname.startsWith('/uploads') ||
-        request.nextUrl.pathname.match(/\.(png|jpg|jpeg|gif|webp|svg|ico)$/)
+        pathname.startsWith('/api') ||
+        pathname.startsWith('/_next') ||
+        pathname.startsWith('/uploads') ||
+        pathname.startsWith('/editor') || // Permitimos el editor siempre para poder desactivar el modo
+        pathname === '/mantenimiento' ||
+        pathname.match(/\.(png|jpg|jpeg|gif|webp|svg|ico)$/)
     ) {
         return NextResponse.next();
     }
 
-    // Si estamos en mantenimiento y la ruta no es permitida, redirigimos a /mantenimiento
-    if (isMaintenanceMode) {
-        return NextResponse.redirect(new URL('/mantenimiento', request.url));
+    try {
+        // Consultamos la API de estatus (usamos el origen de la request)
+        // Agregamos un header para evitar recursividad si fuera necesario
+        const baseUrl = request.nextUrl.origin;
+        const res = await fetch(`${baseUrl}/api/settings/status`, {
+            cache: 'no-store'
+        });
+        const data = await res.json();
+
+        if (data.maintenanceMode) {
+            return NextResponse.redirect(new URL('/mantenimiento', request.url));
+        }
+    } catch (e) {
+        console.error('Middleware maintenance check failed', e);
     }
 
     return NextResponse.next();

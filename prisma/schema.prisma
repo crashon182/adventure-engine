@@ -156,3 +156,9 @@ model EventResult {
 
   @@index([eventId], map: "EventResult_eventId_fkey")
 }
+
+model GlobalSettings {
+  id                 String  @id @default("default")
+  maintenanceMode    Boolean @default(false)
+  maintenanceMessage String? @db.Text
+}
