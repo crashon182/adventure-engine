@@ -1,31 +1,48 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
+    const token = (await getToken({
+        req: request,
+        secret: process.env.NEXTAUTH_SECRET
+    })) as any;
 
-    // Rutas que siempre deben estar disponibles (Assets, API, Editor)
+    // Rutas que siempre deben estar disponibles (Auth, Next, Assets)
     if (
-        pathname.startsWith('/api') ||
+        pathname.startsWith('/api/auth') ||
         pathname.startsWith('/_next') ||
         pathname.startsWith('/uploads') ||
-        pathname.startsWith('/editor') || // Permitimos el editor siempre para poder desactivar el modo
+        pathname === '/login' ||
+        pathname === '/register' ||
         pathname === '/mantenimiento' ||
         pathname.match(/\.(png|jpg|jpeg|gif|webp|svg|ico)$/)
     ) {
         return NextResponse.next();
     }
 
+    // Proteger el Editor (Requiere estar logueado)
+    if (pathname.startsWith('/editor')) {
+        if (!token) {
+            const loginUrl = new URL('/login', request.url);
+            loginUrl.searchParams.set('callbackUrl', pathname);
+            return NextResponse.redirect(loginUrl);
+        }
+    }
+
+    // Chequeo de Mantenimiento
     try {
-        // Consultamos la API de estatus (usamos el origen de la request)
-        // Agregamos un header para evitar recursividad si fuera necesario
         const baseUrl = request.nextUrl.origin;
         const res = await fetch(`${baseUrl}/api/settings/status`, {
             cache: 'no-store'
         });
         const data = await res.json();
 
-        if (data.maintenanceMode) {
+        // Redirigir a mantenimiento si:
+        // 1. El modo está activo
+        // 2. El usuario NO es ADMIN (los admins pueden ver el sitio siempre)
+        if (data.maintenanceMode && token?.role !== 'ADMIN') {
             return NextResponse.redirect(new URL('/mantenimiento', request.url));
         }
     } catch (e) {
@@ -36,6 +53,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-    // Configura aquí para qué rutas se ejecuta este middleware
-    matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+    matcher: ['/((?!api/auth|_next/static|_next/image|favicon.ico).*)'],
 };
