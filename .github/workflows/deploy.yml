@@ -83,7 +83,10 @@ jobs:
             EOFCONFIG
 
             # --- PASO 5: Reinicio quirúrgico ---
-            # NO usamos pm2 kill porque apaga todas tus otras webs (elbooz, academiaindie)
-            # Solo reiniciamos esta app específica usando el archivo de configuración
-            $NODE_EXE $(which pm2) start ecosystem.config.js || $NODE_EXE $(which pm2) reload ecosystem.config.js
+            # Borramos la app vieja de la lista de PM2 para que cargue la nueva config con el interpreter correcto
+            $NODE_EXE $(which pm2) delete adventure-engine || true
+            $NODE_EXE $(which pm2) start ecosystem.config.js
             $NODE_EXE $(which pm2) save
+            
+            # Mostramos el estado final para los logs de GitHub Actions
+            $NODE_EXE $(which pm2) list
