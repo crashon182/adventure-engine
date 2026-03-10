@@ -20,7 +20,9 @@ jobs:
           username: ${{ secrets.DONWEB_USERNAME }}
           password: ${{ secrets.DONWEB_PASSWORD }}
           port: ${{ secrets.DONWEB_PORT }}
+          command_timeout: 30m
           script: |
+            set -e
             cd /home/adventurengine/htdocs/adventurengine.com
 
             # --- PASO 1: Descargar código ---
@@ -35,7 +37,6 @@ jobs:
             fi
 
             # --- PASO 2: Encontrar Node moderno ---
-            # Buscamos en las rutas típicas de CloudPanel
             NODE_EXE=""
             for p in /usr/bin/node22 /usr/bin/node20 /usr/bin/node18; do
               if [ -x "$p" ]; then
@@ -43,50 +44,30 @@ jobs:
                 break
               fi
             done
-            
-            # Si no encontramos ninguno, usamos el default
             if [ -z "$NODE_EXE" ]; then
               NODE_EXE=$(which node)
             fi
 
-            echo "=========================================="
-            echo "NODE BINARIO: $NODE_EXE"
+            echo "========== NODE INFO =========="
+            echo "NODE: $NODE_EXE"
             $NODE_EXE -v
-            echo "NPM: $(which npm)"
-            echo "USUARIO: $(whoami)"
-            echo "=========================================="
+            echo "==============================="
 
             # --- PASO 3: Instalar y compilar ---
-            # No borramos .next antes de compilar para evitar 502 innecesarios
             $NODE_EXE $(which npm) install
             $NODE_EXE $(which npx) prisma generate
-            $NODE_EXE $(which npx) prisma db push
-            
-            # Compilamos primero, la app vieja sigue corriendo en memoria
+            $NODE_EXE $(which npx) prisma db push --accept-data-loss
             NODE_OPTIONS="--max-old-space-size=2048" $NODE_EXE $(which npm) run build
 
-            # --- PASO 4: Asegurar ecosystem.config.js ---
-            cat > ecosystem.config.js << EOFCONFIG
-            module.exports = {
-              apps: [{
-                name: 'adventure-engine',
-                cwd: '/home/adventurengine/htdocs/adventurengine.com',
-                script: 'node_modules/next/dist/bin/next',
-                args: 'start -p 3002',
-                interpreter: '$NODE_EXE',
-                env: {
-                  NODE_ENV: 'production',
-                  PORT: '3002',
-                },
-              }],
-            };
-            EOFCONFIG
+            # --- PASO 4: Crear ecosystem.config.js ---
+            echo "module.exports={apps:[{name:'adventure-engine',cwd:'/home/adventurengine/htdocs/adventurengine.com',script:'node_modules/next/dist/bin/next',args:'start -p 3002',interpreter:'$NODE_EXE',env:{NODE_ENV:'production',PORT:'3002'}}]};" > ecosystem.config.js
 
-            # --- PASO 5: Reinicio quirúrgico ---
-            # Borramos la app vieja de la lista de PM2 para que cargue la nueva config con el interpreter correcto
+            # --- PASO 5: Reiniciar solo esta app ---
             $NODE_EXE $(which pm2) delete adventure-engine || true
             $NODE_EXE $(which pm2) start ecosystem.config.js
             $NODE_EXE $(which pm2) save
-            
-            # Mostramos el estado final para los logs de GitHub Actions
+
+            # Verificar que arrancó
+            sleep 3
             $NODE_EXE $(which pm2) list
+            echo "=== DEPLOY COMPLETADO ==="
