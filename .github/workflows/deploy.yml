@@ -37,21 +37,71 @@ jobs:
             fi
 
             # --- PASO 2: Encontrar Node moderno ---
+            # Buscamos EXHAUSTIVAMENTE en todas las rutas posibles
+            echo "=== BUSCANDO TODOS LOS BINARIOS DE NODE ==="
+            find /usr -name "node*" -type f -executable 2>/dev/null | head -20 || true
+            find /opt -name "node*" -type f -executable 2>/dev/null | head -20 || true
+            find /home -name "node" -path "*/bin/node" -type f -executable 2>/dev/null | head -10 || true
+            ls -la /usr/bin/node* 2>/dev/null || true
+            ls -la /usr/local/bin/node* 2>/dev/null || true
+            ls -la /opt/Node*/bin/node 2>/dev/null || true
+            which -a node 2>/dev/null || true
+            echo "=== FIN BUSQUEDA ==="
+
             NODE_EXE=""
-            for p in /usr/bin/node22 /usr/bin/node20 /usr/bin/node18; do
+            for p in \
+              /usr/bin/node22 /usr/bin/node20 /usr/bin/node18 \
+              /usr/local/bin/node22 /usr/local/bin/node20 /usr/local/bin/node18 \
+              /usr/local/bin/node \
+              /opt/Node22/bin/node /opt/Node20/bin/node /opt/Node18/bin/node \
+              /opt/node22/bin/node /opt/node20/bin/node /opt/node18/bin/node \
+              /usr/lib/node_modules/node/bin/node; do
               if [ -x "$p" ]; then
-                NODE_EXE="$p"
-                break
+                VER=$("$p" -v 2>/dev/null || echo "v0")
+                MAJOR=$(echo "$VER" | sed 's/v//' | cut -d. -f1)
+                if [ "$MAJOR" -ge 18 ] 2>/dev/null; then
+                  NODE_EXE="$p"
+                  echo "ENCONTRADO Node moderno: $NODE_EXE ($VER)"
+                  break
+                fi
               fi
             done
+
+            # Si no encontramos en rutas fijas, buscamos con find
             if [ -z "$NODE_EXE" ]; then
+              echo "No se encontro Node en rutas estandar, buscando con find..."
+              for FOUND in $(find /usr /opt /home -name "node" -type f -executable 2>/dev/null); do
+                VER=$("$FOUND" -v 2>/dev/null || echo "v0")
+                MAJOR=$(echo "$VER" | sed 's/v//' | cut -d. -f1)
+                if [ "$MAJOR" -ge 18 ] 2>/dev/null; then
+                  NODE_EXE="$FOUND"
+                  echo "ENCONTRADO via find: $NODE_EXE ($VER)"
+                  break
+                fi
+              done
+            fi
+
+            # Si TODAVIA no encontramos, intentamos instalar via nvm
+            if [ -z "$NODE_EXE" ]; then
+              echo "ERROR CRITICO: No se encontro Node >= 18 en el servidor."
+              echo "Intentando instalar Node 20 via nvm..."
+              export NVM_DIR="$HOME/.nvm"
+              if [ ! -d "$NVM_DIR" ]; then
+                curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+              fi
+              [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+              nvm install 20
+              nvm use 20
               NODE_EXE=$(which node)
             fi
 
-            echo "========== NODE INFO =========="
-            echo "NODE: $NODE_EXE"
+            echo "=========================================="
+            echo "NODE BINARIO FINAL: $NODE_EXE"
             $NODE_EXE -v
-            echo "==============================="
+            echo "=========================================="
+
+            # Configurar PATH para que npm/npx usen el Node correcto
+            export PATH="$(dirname $NODE_EXE):$PATH"
 
             # --- PASO 3: Instalar y compilar ---
             $NODE_EXE $(which npm) install
