@@ -44,7 +44,7 @@ jobs:
             
             # Limpiar compilación anterior y construir (Asegura que aparezcan cambios visuales)
             rm -rf .next
-            npm run build
+            NODE_OPTIONS="--max-old-space-size=1536" npm run build
             
             # Reiniciar PM2 para aplicar cambios
             pm2 delete adventure-engine || true
