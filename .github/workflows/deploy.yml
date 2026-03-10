@@ -21,11 +21,19 @@ jobs:
           key: ${{ secrets.DONWEB_SSH_KEY }}
           port: ${{ secrets.DONWEB_PORT }}
           script: |
-            # Ajusta esta ruta a donde tengas clonado el proyecto en tu servidor DonWeb
-            cd /var/www/adventure-engine
+            # Ir a la carpeta correcta de producción
+            cd /home/adventurengine/htdocs/adventurengine.com
             
-            # Traer los últimos cambios de la rama main
-            git pull origin main
+            # Forzar la descarga desde GitHub ignorando si antes no era un repo git
+            if [ ! -d ".git" ]; then
+              git init
+              git remote add origin https://github.com/crashon182/adventure-engine.git
+              git fetch
+              git checkout -t origin/main -f
+            else
+              git reset --hard origin/main
+              git pull origin main
+            fi
             
             # Instalar dependencias
             npm install
@@ -37,5 +45,7 @@ jobs:
             # Construir la aplicación Next.js
             npm run build
             
-            # Reiniciar la aplicación (asumiendo que usas PM2 como administrador de procesos)
-            pm2 restart adventure-engine || pm2 start npm --name "adventure-engine" -- start
+            # Eliminar la instancia vieja si existe y levantarla en el puerto correcto (3002) forzando el directorio (cwd)
+            pm2 delete adventure-engine || true
+            pm2 start npm --name "adventure-engine" --cwd "/home/adventurengine/htdocs/adventurengine.com" -- start -- -p 3002
+            pm2 save
