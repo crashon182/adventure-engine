@@ -36,16 +36,25 @@ jobs:
             fi
             
             # Intentar encontrar el Node 22 o 20 de CloudPanel, si no usar el default
+            # Pero antes, cargamos nvm por si acaso está en el sistema
+            [ -s "$HOME/.nvm/nvm.sh" ] && \. "$HOME/.nvm/nvm.sh"
+
             if [ -f "/usr/bin/node22" ]; then
               NODE_EXE="/usr/bin/node22"
             elif [ -f "/usr/bin/node20" ]; then
               NODE_EXE="/usr/bin/node20"
-            else
+            elif command -v node > /dev/null && [ "$(node -v | cut -d. -f1 | tr -d v)" -ge 18 ]; then
               NODE_EXE=$(which node)
+            else
+              # Si fallan las rutas directas, intentamos nvm
+              NODE_EXE=$(nvm which 20 2>/dev/null || nvm which 18 2>/dev/null || which node)
             fi
             
-            echo "USANDO NODE BINARIO: $NODE_EXE"
+            echo "--- DEBUG INFO ---"
+            echo "USUARIO: $(whoami)"
+            echo "NODE_EXE: $NODE_EXE"
             $NODE_EXE -v
+            echo "------------------"
             
             # Instalar dependencias con el Node correcto
             $NODE_EXE $(which npm) install
@@ -54,11 +63,14 @@ jobs:
             $NODE_EXE $(which npx) prisma generate
             $NODE_EXE $(which npx) prisma db push
             
-            # Construir con boost de memoria y el Node correcto
-            NODE_OPTIONS="--max-old-space-size=1536" $NODE_EXE $(which npm) run build
+            # Limpiar compilación anterior para asegurar que no hay archivos corruptos
+            rm -rf .next
             
-            # Reiniciar PM2 - FORMA DEFINITIVA
-            # Ejecutamos 'next start' llamando directamente al binario de Node 22 sobre el archivo de next
+            # Construir con boost de memoria y el Node correcto
+            NODE_OPTIONS="--max-old-space-size=2048" $NODE_EXE $(which npm) run build
+            
+            # Reiniciar PM2 forzando el uso del ejecutable de Node correcto
+            # Usamos --interpreter para que PM2 sepa qué Node usar exactamente
             pm2 delete adventure-engine || true
-            pm2 start $NODE_EXE --name "adventure-engine" -- /home/adventurengine/htdocs/adventurengine.com/node_modules/next/dist/bin/next start -- -p 3002
+            pm2 start $NODE_EXE --name "adventure-engine" --interpreter $NODE_EXE -- /home/adventurengine/htdocs/adventurengine.com/node_modules/next/dist/bin/next start -- -p 3002
             pm2 save
