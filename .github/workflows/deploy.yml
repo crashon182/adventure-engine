@@ -57,7 +57,8 @@ jobs:
             # Construir con boost de memoria y el Node correcto
             NODE_OPTIONS="--max-old-space-size=1536" $NODE_EXE $(which npm) run build
             
-            # Reiniciar PM2 forzando el uso del ejecutable de Node correcto
+            # Reiniciar PM2 - FORMA DEFINITIVA
+            # Ejecutamos 'next start' llamando directamente al binario de Node 22 sobre el archivo de next
             pm2 delete adventure-engine || true
-            pm2 start $NODE_EXE --name "adventure-engine" -- /home/adventurengine/htdocs/adventurengine.com/node_modules/next/dist/bin/next start -p 3002
+            pm2 start $NODE_EXE --name "adventure-engine" -- /home/adventurengine/htdocs/adventurengine.com/node_modules/next/dist/bin/next start -- -p 3002
             pm2 save
