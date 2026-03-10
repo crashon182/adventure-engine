@@ -21,10 +21,9 @@ jobs:
           password: ${{ secrets.DONWEB_PASSWORD }}
           port: ${{ secrets.DONWEB_PORT }}
           script: |
-            # Ir a la carpeta correcta de producción
             cd /home/adventurengine/htdocs/adventurengine.com
-            
-            # Forzar la descarga desde GitHub ignorando si antes no era un repo git
+
+            # --- PASO 1: Descargar código ---
             if [ ! -d ".git" ]; then
               git init
               git remote add origin https://github.com/crashon182/adventure-engine.git
@@ -34,43 +33,59 @@ jobs:
               git reset --hard origin/main
               git pull origin main
             fi
-            
-            # Intentar encontrar el Node 22 o 20 de CloudPanel, si no usar el default
-            # Pero antes, cargamos nvm por si acaso está en el sistema
-            [ -s "$HOME/.nvm/nvm.sh" ] && \. "$HOME/.nvm/nvm.sh"
 
-            if [ -f "/usr/bin/node22" ]; then
-              NODE_EXE="/usr/bin/node22"
-            elif [ -f "/usr/bin/node20" ]; then
-              NODE_EXE="/usr/bin/node20"
-            elif command -v node > /dev/null && [ "$(node -v | cut -d. -f1 | tr -d v)" -ge 18 ]; then
+            # --- PASO 2: Encontrar Node moderno ---
+            # Buscamos en las rutas típicas de CloudPanel
+            NODE_EXE=""
+            for p in /usr/bin/node22 /usr/bin/node20 /usr/bin/node18; do
+              if [ -x "$p" ]; then
+                NODE_EXE="$p"
+                break
+              fi
+            done
+            
+            # Si no encontramos ninguno, usamos el default
+            if [ -z "$NODE_EXE" ]; then
               NODE_EXE=$(which node)
-            else
-              # Si fallan las rutas directas, intentamos nvm
-              NODE_EXE=$(nvm which 20 2>/dev/null || nvm which 18 2>/dev/null || which node)
             fi
-            
-            echo "--- DEBUG INFO ---"
-            echo "USUARIO: $(whoami)"
-            echo "NODE_EXE: $NODE_EXE"
+
+            echo "=========================================="
+            echo "NODE BINARIO: $NODE_EXE"
             $NODE_EXE -v
-            echo "------------------"
-            
-            # Instalar dependencias con el Node correcto
+            echo "NPM: $(which npm)"
+            echo "USUARIO: $(whoami)"
+            echo "=========================================="
+
+            # --- PASO 3: Instalar y compilar ---
             $NODE_EXE $(which npm) install
-            
-            # Sincronizar Base de Datos con el Node correcto
             $NODE_EXE $(which npx) prisma generate
             $NODE_EXE $(which npx) prisma db push
-            
-            # Limpiar compilación anterior para asegurar que no hay archivos corruptos
             rm -rf .next
-            
-            # Construir con boost de memoria y el Node correcto
             NODE_OPTIONS="--max-old-space-size=2048" $NODE_EXE $(which npm) run build
-            
-            # Reiniciar PM2 forzando el uso del ejecutable de Node correcto
-            # Usamos --interpreter para que PM2 sepa qué Node usar exactamente
-            pm2 delete adventure-engine || true
-            pm2 start $NODE_EXE --name "adventure-engine" --interpreter $NODE_EXE -- /home/adventurengine/htdocs/adventurengine.com/node_modules/next/dist/bin/next start -- -p 3002
-            pm2 save
+
+            # --- PASO 4: Reescribir ecosystem.config.js con la ruta correcta ---
+            cat > ecosystem.config.js << EOFCONFIG
+            module.exports = {
+              apps: [{
+                name: 'adventure-engine',
+                cwd: '/home/adventurengine/htdocs/adventurengine.com',
+                script: 'node_modules/next/dist/bin/next',
+                args: 'start -p 3002',
+                interpreter: '$NODE_EXE',
+                env: {
+                  NODE_ENV: 'production',
+                  PORT: '3002',
+                },
+              }],
+            };
+            EOFCONFIG
+
+            # --- PASO 5: MATAR PM2 COMPLETAMENTE y reiniciar ---
+            # Esto destruye el demonio viejo que usa Node 12
+            # y lo recrea usando el Node actual del sistema
+            pm2 kill
+
+            # Ahora iniciamos con el ecosystem que tiene el interpreter correcto
+            $NODE_EXE $(which pm2) start ecosystem.config.js
+            $NODE_EXE $(which pm2) save
+            $NODE_EXE $(which pm2) startup || true
