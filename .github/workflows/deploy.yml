@@ -1,0 +1,41 @@
+name: Deploy to DonWeb
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DONWEB_HOST }}
+          username: ${{ secrets.DONWEB_USERNAME }}
+          key: ${{ secrets.DONWEB_SSH_KEY }}
+          port: ${{ secrets.DONWEB_PORT }}
+          script: |
+            # Ajusta esta ruta a donde tengas clonado el proyecto en tu servidor DonWeb
+            cd /var/www/adventure-engine
+            
+            # Traer los últimos cambios de la rama main
+            git pull origin main
+            
+            # Instalar dependencias
+            npm install
+            
+            # Ejecutar migraciones de Prisma si aplica
+            npx prisma generate
+            npx prisma db push
+            
+            # Construir la aplicación Next.js
+            npm run build
+            
+            # Reiniciar la aplicación (asumiendo que usas PM2 como administrador de procesos)
+            pm2 restart adventure-engine || pm2 start npm --name "adventure-engine" -- start
