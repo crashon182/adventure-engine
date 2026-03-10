@@ -18,7 +18,7 @@ jobs:
         with:
           host: ${{ secrets.DONWEB_HOST }}
           username: ${{ secrets.DONWEB_USERNAME }}
-          key: ${{ secrets.DONWEB_SSH_KEY }}
+          password: ${{ secrets.DONWEB_PASSWORD }}
           port: ${{ secrets.DONWEB_PORT }}
           script: |
             # Ir a la carpeta correcta de producción
