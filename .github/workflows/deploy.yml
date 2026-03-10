@@ -38,14 +38,15 @@ jobs:
             # Instalar dependencias
             npm install
             
-            # Ejecutar migraciones de Prisma si aplica
+            # Sincronizar Base de Datos (Crea tablas nuevas como GlobalSettings)
             npx prisma generate
             npx prisma db push
             
-            # Construir la aplicación Next.js
+            # Limpiar compilación anterior y construir (Asegura que aparezcan cambios visuales)
+            rm -rf .next
             npm run build
             
-            # Eliminar la instancia vieja si existe y levantarla en el puerto correcto (3002) forzando el directorio (cwd)
+            # Reiniciar PM2 para aplicar cambios
             pm2 delete adventure-engine || true
             pm2 start npm --name "adventure-engine" --cwd "/home/adventurengine/htdocs/adventurengine.com" -- start -- -p 3002
             pm2 save
