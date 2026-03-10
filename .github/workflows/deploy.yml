@@ -35,22 +35,29 @@ jobs:
               git pull origin main
             fi
             
-            # Forzar el uso del Node que vemos en la consola (v20+)
-            NODE_PATH=$(which node)
-            echo "Usando Node en: $NODE_PATH"
-            $NODE_PATH -v
+            # Intentar encontrar el Node 22 o 20 de CloudPanel, si no usar el default
+            if [ -f "/usr/bin/node22" ]; then
+              NODE_EXE="/usr/bin/node22"
+            elif [ -f "/usr/bin/node20" ]; then
+              NODE_EXE="/usr/bin/node20"
+            else
+              NODE_EXE=$(which node)
+            fi
+            
+            echo "USANDO NODE BINARIO: $NODE_EXE"
+            $NODE_EXE -v
             
             # Instalar dependencias con el Node correcto
-            $NODE_PATH $(which npm) install
+            $NODE_EXE $(which npm) install
             
-            # Sincronizar Base de Datos
-            $NODE_PATH $(which npx) prisma generate
-            $NODE_PATH $(which npx) prisma db push
+            # Sincronizar Base de Datos con el Node correcto
+            $NODE_EXE $(which npx) prisma generate
+            $NODE_EXE $(which npx) prisma db push
             
-            # Construir (con boost de memoria)
-            NODE_OPTIONS="--max-old-space-size=1536" $NODE_PATH $(which npm) run build
+            # Construir con boost de memoria y el Node correcto
+            NODE_OPTIONS="--max-old-space-size=1536" $NODE_EXE $(which npm) run build
             
-            # Reiniciar PM2 forzando el intérprete de Node actual
+            # Reiniciar PM2 forzando el uso del ejecutable de Node correcto
             pm2 delete adventure-engine || true
-            pm2 start $NODE_PATH --name "adventure-engine" -- /home/adventurengine/htdocs/adventurengine.com/node_modules/next/dist/bin/next start -p 3002
+            pm2 start $NODE_EXE --name "adventure-engine" -- /home/adventurengine/htdocs/adventurengine.com/node_modules/next/dist/bin/next start -p 3002
             pm2 save
