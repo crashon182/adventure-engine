@@ -1,8 +1,9 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { PlusCircle, Folder, Settings, Play, LogOut, User as UserIcon, LogIn, UserPlus, Shield } from 'lucide-react';
+import { PlusCircle, Folder, Settings, Play, LogOut, User as UserIcon, LogIn, UserPlus } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
+import AdminSidebar from '@/components/AdminSidebar';
 
 type Project = {
   id: string;
@@ -18,6 +19,8 @@ export default function Dashboard() {
   const [isCreating, setIsCreating] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDesc, setNewProjectDesc] = useState('');
+
+  const isAdmin = session?.user?.role === 'ADMIN';
 
   useEffect(() => {
     fetchProjects();
@@ -70,8 +73,8 @@ export default function Dashboard() {
     </div>
   );
 
-  return (
-    <div className="max-w-6xl mx-auto p-8">
+  const DashboardContent = (
+    <div className={`p-8 ${isAdmin ? 'max-w-7xl' : 'max-w-6xl mx-auto'}`}>
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
         <div>
           <h1 className="text-4xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
@@ -89,7 +92,7 @@ export default function Dashboard() {
                 </div>
                 <div className="flex flex-col">
                   <span className="text-sm font-bold text-white leading-none">{session.user?.name}</span>
-                  <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">{session.role}</span>
+                  <span className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">{session.user?.role}</span>
                 </div>
               </div>
 
@@ -100,15 +103,6 @@ export default function Dashboard() {
                 <PlusCircle size={20} />
                 Nuevo Proyecto
               </button>
-
-              {session.user?.role === 'ADMIN' && (
-                <Link href="/admin/users">
-                  <button className="flex items-center gap-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 hover:text-white px-5 py-2.5 rounded-xl font-bold border border-purple-500/30 transition-all active:scale-95">
-                    <UserIcon size={18} />
-                    Usuarios
-                  </button>
-                </Link>
-              )}
 
               <button
                 onClick={() => signOut()}
@@ -244,6 +238,23 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+    </div>
+  );
+
+  if (isAdmin) {
+    return (
+      <div className="flex min-h-screen bg-gray-900 text-white">
+        <AdminSidebar />
+        <main className="flex-1 max-h-screen overflow-y-auto bg-gradient-to-b from-gray-900 to-black">
+          {DashboardContent}
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-900 text-white">
+      {DashboardContent}
     </div>
   );
 }
