@@ -112,12 +112,25 @@ jobs:
             # --- PASO 4: Crear ecosystem.config.js ---
             echo "module.exports={apps:[{name:'adventure-engine',cwd:'/home/adventurengine/htdocs/adventurengine.com',script:'node_modules/next/dist/bin/next',args:'start -p 3002',interpreter:'$NODE_EXE',env:{NODE_ENV:'production',PORT:'3002'}}]};" > ecosystem.config.js
 
-            # --- PASO 5: Reiniciar solo esta app ---
-            $NODE_EXE $(which pm2) delete adventure-engine || true
-            $NODE_EXE $(which pm2) start ecosystem.config.js
+            # --- PASO 5: Reiniciar/Recargar con PM2 ---
+            # Usamos startOrReload para evitar downtime si la app ya está corriendo
+            # y movemos el build a una fase donde no afecte tanto la disponibilidad.
+            $NODE_EXE $(which pm2) startOrReload ecosystem.config.js --update-env
             $NODE_EXE $(which pm2) save
 
-            # Verificar que arrancó
-            sleep 3
+            # --- PASO 6: Verificar que arrancó ---
+            echo "Esperando a que la aplicación inicie..."
+            sleep 10
+            
+            # Intento de health check local
+            if curl -s http://localhost:3002 > /dev/null; then
+              echo "✅ Health check exitoso: La aplicación responde en el puerto 3002"
+            else
+              echo "⚠️ ADVERTENCIA: La aplicación no responde en el puerto 3002 después de 10s"
+              $NODE_EXE $(which pm2) logs adventure-engine --lines 20 --nostream
+              # No fallamos el deploy aquí para permitir inspección manual si es necesario, 
+              # pero informamos el estado.
+            fi
+            
             $NODE_EXE $(which pm2) list
             echo "=== DEPLOY COMPLETADO ==="
