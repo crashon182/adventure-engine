@@ -42,23 +42,26 @@ export async function middleware(request: NextRequest) {
     try {
         const baseUrl = request.nextUrl.origin;
         const res = await fetch(`${baseUrl}/api/settings/status`, {
-            cache: 'no-store'
+            cache: 'no-store',
+            next: { revalidate: 0 }
         });
-        const data = await res.json();
 
-        // Redirigir a mantenimiento si:
-        // 1. El modo está activo
-        // 2. El usuario NO es ADMIN (los admins pueden ver el sitio siempre)
-        if (data.maintenanceMode && token?.role !== 'ADMIN') {
-            return NextResponse.redirect(new URL('/mantenimiento', request.url));
+        if (res.ok) {
+            const data = await res.json();
+            // Redirigir a mantenimiento si:
+            // 1. El modo está activo
+            // 2. El usuario NO es ADMIN (los admins pueden ver el sitio siempre)
+            if (data.maintenanceMode && token?.role !== 'ADMIN') {
+                return NextResponse.redirect(new URL('/mantenimiento', request.url));
+            }
         }
     } catch (e) {
-        console.error('Middleware maintenance check failed', e);
+        console.error('Middleware maintenance check failed:', e);
     }
 
     return NextResponse.next();
 }
 
 export const config = {
-    matcher: ['/((?!api/auth|_next/static|_next/image|favicon.ico).*)'],
+    matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };
