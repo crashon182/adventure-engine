@@ -22,7 +22,7 @@ export default function AdminUsersPage() {
     const [updatingId, setUpdatingId] = useState<string | null>(null);
 
     useEffect(() => {
-        if (status === 'unauthenticated' || (status === 'authenticated' && session?.role !== 'ADMIN')) {
+        if (status === 'unauthenticated' || (status === 'authenticated' && session?.user?.role !== 'ADMIN')) {
             router.push('/');
             return;
         }
@@ -156,8 +156,8 @@ export default function AdminUsersPage() {
                                             onClick={() => toggleRole(user.id, user.role)}
                                             disabled={updatingId === user.id}
                                             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-50 ${user.role === 'ADMIN'
-                                                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                                                    : 'bg-blue-600 text-white hover:bg-blue-500'
+                                                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                                : 'bg-blue-600 text-white hover:bg-blue-500'
                                                 }`}
                                         >
                                             {updatingId === user.id ? (
