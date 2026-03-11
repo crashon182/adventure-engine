@@ -80,10 +80,6 @@ export default function AdminUsersPage() {
     return (
         <div className="max-w-6xl mx-auto p-8">
             <header className="mb-12">
-                <Link href="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors group">
-                    <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
-                    Volver al Dashboard
-                </Link>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div>
                         <h1 className="text-4xl font-extrabold tracking-tight text-white mb-2">
