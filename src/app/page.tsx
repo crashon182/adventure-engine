@@ -104,8 +104,8 @@ export default function Dashboard() {
               {session.user?.role === 'ADMIN' && (
                 <Link href="/admin/users">
                   <button className="flex items-center gap-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 hover:text-white px-5 py-2.5 rounded-xl font-bold border border-purple-500/30 transition-all active:scale-95">
-                    <Shield size={18} />
-                    Panel Admin
+                    <UserIcon size={18} />
+                    Usuarios
                   </button>
                 </Link>
               )}

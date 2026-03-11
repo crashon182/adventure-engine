@@ -81,14 +81,6 @@ export default function EditorLayout({ children, params }: { children: ReactNode
                                     <Code size={18} />
                                     {!isCollapsed && <span>Event Rules</span>}
                                 </Link>
-                                <Link
-                                    href={`/editor/${params.projectId}/settings`}
-                                    className={`flex items-center gap-3 py-2 rounded-md transition-colors ${isCollapsed ? 'px-2 justify-center' : 'px-3'} ${pathname.includes('/settings') ? 'bg-gray-700 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
-                                    title={isCollapsed ? 'Settings' : ''}
-                                >
-                                    <Settings size={18} />
-                                    {!isCollapsed && <span>Settings</span>}
-                                </Link>
                             </div>
                         </nav>
                     </aside>
