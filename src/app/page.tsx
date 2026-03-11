@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { PlusCircle, Folder, Settings, Play, LogOut, User as UserIcon, LogIn, UserPlus } from 'lucide-react';
+import { PlusCircle, Folder, Settings, Play, LogOut, User as UserIcon, LogIn, UserPlus, Shield } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 
 type Project = {
@@ -100,6 +100,15 @@ export default function Dashboard() {
                 <PlusCircle size={20} />
                 Nuevo Proyecto
               </button>
+
+              {session.role === 'ADMIN' && (
+                <Link href="/admin/users">
+                  <button className="flex items-center gap-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 hover:text-white px-5 py-2.5 rounded-xl font-bold border border-purple-500/30 transition-all active:scale-95">
+                    <Shield size={18} />
+                    Panel Admin
+                  </button>
+                </Link>
+              )}
 
               <button
                 onClick={() => signOut()}

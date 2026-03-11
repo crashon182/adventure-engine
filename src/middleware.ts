@@ -22,6 +22,13 @@ export async function middleware(request: NextRequest) {
         return NextResponse.next();
     }
 
+    // Proteger el Panel de Administración (Solo ADMIN)
+    if (pathname.startsWith('/admin')) {
+        if (!token || token.role !== 'ADMIN') {
+            return NextResponse.redirect(new URL('/', request.url));
+        }
+    }
+
     // Proteger el Editor (Requiere estar logueado)
     if (pathname.startsWith('/editor')) {
         if (!token) {
