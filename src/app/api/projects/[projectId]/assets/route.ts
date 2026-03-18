@@ -9,7 +9,11 @@ export async function GET(request: Request, { params }: { params: { projectId: s
             where: { projectId: params.projectId },
             orderBy: { name: 'asc' }
         });
-        return NextResponse.json(assets);
+        const formattedAssets = assets.map(asset => ({
+            ...asset,
+            url: asset.url.replace(/^\/uploads\//, '/api/uploads/')
+        }));
+        return NextResponse.json(formattedAssets);
     } catch (error) {
         return NextResponse.json({ error: 'Failed to fetch assets' }, { status: 500 });
     }
@@ -37,7 +41,7 @@ export async function POST(request: Request, { params }: { params: { projectId: 
         const filepath = join(uploadDir, uniqueFilename);
         await writeFile(filepath, buffer);
 
-        const fileUrl = `/uploads/${params.projectId}/${uniqueFilename}`;
+        const fileUrl = `/api/uploads/${params.projectId}/${uniqueFilename}`;
         const type = file.type.startsWith('image') ? 'image' : file.type.startsWith('audio') ? 'audio' : 'other';
 
         const asset = await prisma.asset.create({

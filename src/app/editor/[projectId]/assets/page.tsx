@@ -116,7 +116,21 @@ export default function AssetManager({ params }: { params: { projectId: string }
                             <div className="h-32 bg-gray-900 flex items-center justify-center relative">
                                 {asset.type === 'image' ? (
                                     // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={asset.url} alt={asset.name} className="object-cover w-full h-full opacity-80 group-hover:opacity-100 transition-opacity" />
+                                    <img
+                                        src={asset.url}
+                                        alt={asset.name}
+                                        className="object-cover w-full h-full opacity-80 group-hover:opacity-100 transition-opacity"
+                                        onError={(e) => {
+                                            const target = e.target as HTMLImageElement;
+                                            const attempts = parseInt(target.getAttribute('data-retry') || '0');
+                                            if (attempts < 5) {
+                                                target.setAttribute('data-retry', (attempts + 1).toString());
+                                                setTimeout(() => {
+                                                    target.src = `${asset.url}?t=${Date.now()}`;
+                                                }, 1500);
+                                            }
+                                        }}
+                                    />
                                 ) : (
                                     <Music size={40} className="text-gray-600" />
                                 )}
