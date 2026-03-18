@@ -9,6 +9,7 @@ export async function GET(request: Request, { params }: { params: { projectId: s
                 bgImage: true,
                 hotspots: true,
                 exits: true,
+                entries: true,
                 sprites: { include: { asset: true } }
             }
         });

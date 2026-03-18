@@ -58,6 +58,14 @@ export default function EditorLayout({ children, params }: { children: ReactNode
                                     {!isCollapsed && <span>Rooms Outline</span>}
                                 </Link>
                                 <Link
+                                    href={`/editor/${params.projectId}/map`}
+                                    className={`flex items-center gap-3 py-2 rounded-md transition-colors ${isCollapsed ? 'px-2 justify-center' : 'px-3'} ${pathname.includes('/map') ? 'bg-gray-700 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
+                                    title={isCollapsed ? 'Room Map' : ''}
+                                >
+                                    <Map size={18} />
+                                    {!isCollapsed && <span>Room Map</span>}
+                                </Link>
+                                <Link
                                     href={`/editor/${params.projectId}/assets`}
                                     className={`flex items-center gap-3 py-2 rounded-md transition-colors ${isCollapsed ? 'px-2 justify-center' : 'px-3'} ${pathname.includes('/assets') ? 'bg-gray-700 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
                                     title={isCollapsed ? 'Asset Manager' : ''}

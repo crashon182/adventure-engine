@@ -7,8 +7,9 @@ export async function GET(request: Request, { params }: { params: { projectId: s
         const project = await prisma.project.findUnique({
             where: { id: params.projectId },
             include: {
-                rooms: { include: { bgImage: true, hotspots: true, exits: true, sprites: { include: { asset: true } } } },
+                rooms: { include: { bgImage: true, hotspots: true, exits: true, entries: true, sprites: { include: { asset: true } } } },
                 items: { include: { icon: true } },
+                connections: true,
                 events: { include: { conditions: true, results: true } },
                 assets: true,
             }

@@ -11,7 +11,8 @@ export async function PUT(request: Request, { params }: { params: { eventId: str
             data: {
                 name: data.name,
                 action: data.action,
-                targetId: data.targetId
+                targetId: data.targetId,
+                secondaryTargetId: data.secondaryTargetId
             }
         });
 

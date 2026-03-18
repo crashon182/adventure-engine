@@ -35,6 +35,7 @@ model Project {
   items       Item[]
   user        User?    @relation(fields: [userId], references: [id])
   rooms       Room[]
+  connections RoomConnection[]
 
   @@index([userId], map: "Project_userId_fkey")
 }
@@ -45,11 +46,14 @@ model Room {
   name      String
   bgImageId String?
   events    Event[]
-  exits     Exit[]
+  exits     RoomConnection[] @relation("FromRoom")
+  entries   RoomConnection[] @relation("ToRoom")
   hotspots  Hotspot[]
   bgImage   Asset?    @relation(fields: [bgImageId], references: [id])
   project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   sprites   Sprite[]
+  x         Float     @default(0)
+  y         Float     @default(0)
 
   @@index([bgImageId], map: "Room_bgImageId_fkey")
   @@index([projectId], map: "Room_projectId_fkey")
@@ -92,14 +96,22 @@ model Hotspot {
   @@index([roomId], map: "Hotspot_roomId_fkey")
 }
 
-model Exit {
-  id         String @id @default(cuid())
-  fromRoomId String
-  toRoomId   String
-  direction  String
-  fromRoom   Room   @relation(fields: [fromRoomId], references: [id], onDelete: Cascade)
+model RoomConnection {
+  id             String  @id @default(cuid())
+  projectId      String
+  fromRoomId     String
+  toRoomId       String
+  direction      String?
+  requiredItemId String?
+  locked         Boolean @default(false)
+  scriptEvent    String? @db.Text
+  project        Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fromRoom       Room    @relation("FromRoom", fields: [fromRoomId], references: [id], onDelete: Cascade)
+  toRoom         Room    @relation("ToRoom", fields: [toRoomId], references: [id], onDelete: Cascade)
 
-  @@index([fromRoomId], map: "Exit_fromRoomId_fkey")
+  @@index([projectId])
+  @@index([fromRoomId])
+  @@index([toRoomId])
 }
 
 model Item {
@@ -135,6 +147,7 @@ model Event {
   name       String
   action     String
   targetId   String?
+  secondaryTargetId String?
   roomId     String?
   project    Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   room       Room?            @relation(fields: [roomId], references: [id], onDelete: Cascade)

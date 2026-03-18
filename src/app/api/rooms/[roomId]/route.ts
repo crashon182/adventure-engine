@@ -9,6 +9,7 @@ export async function GET(request: Request, { params }: { params: { roomId: stri
                 bgImage: true,
                 hotspots: true,
                 exits: true,
+                entries: true,
                 sprites: { include: { asset: true } }
             }
         });
@@ -28,6 +29,8 @@ export async function PUT(request: Request, { params }: { params: { roomId: stri
             data: {
                 name: data.name,
                 bgImageId: data.bgImageId || null,
+                x: data.x !== undefined ? data.x : undefined,
+                y: data.y !== undefined ? data.y : undefined,
             }
         });
         return NextResponse.json(room);

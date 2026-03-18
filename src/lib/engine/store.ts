@@ -9,6 +9,7 @@ interface GameState {
     gameData: any;
     narrativeText: string;
     activeAction: string | null;
+    primaryTargetId: string | null;
 
     initGame: (data: any) => void;
     setAction: (action: string | null) => void;
@@ -19,6 +20,7 @@ interface GameState {
     moveSprite: (spriteId: string, x: number, y: number) => void;
     setSpriteVisibility: (spriteId: string, visible: boolean) => void;
     instantiateSprite: (templateId: string, newId: string, x: number, y: number) => void;
+    getConnectedRooms: (roomId: string) => Record<string, string>;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -30,6 +32,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     gameData: null,
     narrativeText: '',
     activeAction: null,
+    primaryTargetId: null,
 
     initGame: (data) => {
         // Initialize sprite states from room data
@@ -64,10 +67,11 @@ export const useGameStore = create<GameState>((set, get) => ({
             instantiatedSprites: {},
             narrativeText: 'Welcome to the adventure.',
             activeAction: null,
+            primaryTargetId: null,
         });
     },
 
-    setAction: (action) => set({ activeAction: action }),
+    setAction: (action) => set({ activeAction: action, primaryTargetId: null }),
 
     setNarrative: (text) => set({ narrativeText: text }),
 
@@ -146,6 +150,14 @@ export const useGameStore = create<GameState>((set, get) => ({
         const normalizedTargetId = targetId?.toUpperCase();
 
         let effectiveAction = activeAction?.toUpperCase();
+
+        // Handle two-step USE interaction
+        if (effectiveAction === 'USE' && !get().primaryTargetId) {
+            set({ primaryTargetId: targetId });
+            get().setNarrative(`USE ${targetId.toUpperCase()} with...`);
+            return;
+        }
+
         let isDefaultLook = false;
 
         if (!effectiveAction) {
@@ -156,15 +168,40 @@ export const useGameStore = create<GameState>((set, get) => ({
         const possibleEvents = gameData.events.filter((e: any) => {
             const eventAction = (e.action || 'LOOK').toUpperCase();
             const eventTarget = (e.targetId || 'ANY').toUpperCase();
+            const eventSecondary = (e.secondaryTargetId || 'ANY').toUpperCase();
 
             const actionMatches = eventAction === effectiveAction;
-            const targetMatches = eventTarget === 'ANY' ||
-                eventTarget === normalizedTargetId ||
-                normalizedTargetId?.startsWith(eventTarget + '_');
+
+            let targetMatches = false;
+            if (effectiveAction === 'USE' && get().primaryTargetId) {
+                const primary = get().primaryTargetId?.toUpperCase();
+                // Check direct order: USE PRIMARY WITH SECONDARY
+                targetMatches = ((eventTarget === primary || (primary?.startsWith(eventTarget + '_') ?? false))) &&
+                    ((eventSecondary === normalizedTargetId || (normalizedTargetId?.startsWith(eventSecondary + '_') ?? false)));
+
+                // Also check reverse: USE SECONDARY WITH PRIMARY (optional, but requested by some engines)
+                if (!targetMatches) {
+                    targetMatches = ((eventTarget === normalizedTargetId || (normalizedTargetId?.startsWith(eventTarget + '_') ?? false))) &&
+                        ((eventSecondary === primary || (primary?.startsWith(eventSecondary + '_') ?? false)));
+                }
+            } else {
+                targetMatches = eventTarget === 'ANY' ||
+                    eventTarget === normalizedTargetId ||
+                    (normalizedTargetId?.startsWith(eventTarget + '_') ?? false);
+            }
+
             const roomMatches = !e.roomId || e.roomId === currentRoomId;
 
             return actionMatches && targetMatches && roomMatches;
-        }).sort((a: any, b: any) => (b.roomId ? 1 : 0) - (a.roomId ? 1 : 0));
+        }).sort((a: any, b: any) => {
+            let scoreA = a.roomId ? 100 : 0;
+            let scoreB = b.roomId ? 100 : 0;
+            if (a.targetId && a.targetId !== 'ANY') scoreA += 10;
+            if (b.targetId && b.targetId !== 'ANY') scoreB += 10;
+            if (a.secondaryTargetId && a.secondaryTargetId !== 'ANY') scoreA += 10;
+            if (b.secondaryTargetId && b.secondaryTargetId !== 'ANY') scoreB += 10;
+            return scoreB - scoreA;
+        });
 
         let eventTriggered = false;
 
@@ -239,6 +276,22 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
 
         // Reset action after interaction
-        set({ activeAction: null });
-    }
+        set({ activeAction: null, primaryTargetId: null });
+    },
+
+    getConnectedRooms: (roomId) => {
+        const { gameData } = get();
+        if (!gameData || !gameData.connections) return {};
+
+        const connections = gameData.connections.filter((c: any) => c.fromRoomId === roomId);
+        const result: Record<string, string> = {};
+
+        connections.forEach((c: any) => {
+            if (c.direction) {
+                result[c.direction] = c.toRoomId;
+            }
+        });
+
+        return result;
+    },
 }));

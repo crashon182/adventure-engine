@@ -118,6 +118,17 @@ export default function RoomEventsPanel({ roomId, projectId }: { roomId: string;
                                         placeholder="e.g. DOOR"
                                     />
                                 </div>
+                                {activeEvent.action === 'USE' && (
+                                    <div>
+                                        <label className="text-[10px] text-gray-500 block">WITH (Sprite, Hotspot or Prefix)</label>
+                                        <input
+                                            className="w-full bg-gray-950 border border-gray-700 text-white rounded p-1 outline-none text-sm uppercase"
+                                            value={activeEvent.secondaryTargetId || ''}
+                                            onChange={(e) => updateEvent(activeEvent.id, { secondaryTargetId: e.target.value })}
+                                            placeholder="e.g. KEY"
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -344,6 +355,6 @@ export default function RoomEventsPanel({ roomId, projectId }: { roomId: string;
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 }
