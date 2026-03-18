@@ -109,7 +109,18 @@ jobs:
             $NODE_EXE $(which npx) prisma db push --accept-data-loss
             NODE_OPTIONS="--max-old-space-size=2048" $NODE_EXE $(which npm) run build
 
+            # --- PASO 3.5: Crear symlink para uploads ---
+            # Crear la carpeta public/uploads si no existe para que el symlink sea valido
+            mkdir -p public/uploads
+            if [ -d "uploads" ] && [ ! -L "uploads" ]; then
+              echo "ADVERTENCIA: 'uploads' es un directorio real, no un enlace. No se creara el symlink."
+            else
+              ln -sfn public/uploads uploads
+              echo "Symlink 'uploads' -> 'public/uploads' creado/actualizado"
+            fi
+
             # --- PASO 4: Crear ecosystem.config.js ---
+
             echo "module.exports={apps:[{name:'adventure-engine',cwd:'/home/adventurengine/htdocs/adventurengine.com',script:'node_modules/next/dist/bin/next',args:'start -p 3002',interpreter:'$NODE_EXE',env:{NODE_ENV:'production',PORT:'3002'}}]};" > ecosystem.config.js
 
             # --- PASO 5: Reiniciar/Recargar con PM2 ---
