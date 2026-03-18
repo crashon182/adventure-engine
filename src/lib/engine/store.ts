@@ -1,5 +1,40 @@
 import { create } from 'zustand';
 
+const evaluateExpression = (expr: string, state: any): number => {
+    let resolvedExpr = (expr || '').trim();
+    if (!resolvedExpr) return 0;
+
+    // 1. Replace sprite properties like SPRITE_ID.x or SPRITE_ID.y
+    resolvedExpr = resolvedExpr.replace(/([a-zA-Z0-9_-]+)\.([xyXY])/g, (match, spriteId, prop) => {
+        const id = spriteId.toUpperCase();
+        const spriteState = state.spriteStates[id];
+        if (spriteState) {
+            const val = spriteState[prop.toLowerCase() as 'x' | 'y'];
+            return String(val ?? 0);
+        }
+        return '0';
+    });
+
+    // 2. Replace variables
+    resolvedExpr = resolvedExpr.replace(/([a-zA-Z][a-zA-Z0-9_]*)/g, (match) => {
+        const varValue = Object.entries(state.variables).find(([k]) => k.toUpperCase() === match.toUpperCase())?.[1];
+        if (varValue !== undefined) {
+            return String(varValue);
+        }
+        return match;
+    });
+
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-implied-eval
+        const result = Number(new Function(`return ${resolvedExpr}`)());
+        return isNaN(result) ? 0 : result;
+    } catch (e) {
+        console.error("Error evaluating expression:", expr, "resolved:", resolvedExpr, e);
+        const num = Number(expr);
+        return isNaN(num) ? 0 : num;
+    }
+};
+
 interface GameState {
     currentRoomId: string | null;
     inventory: any[];
@@ -238,7 +273,9 @@ export const useGameStore = create<GameState>((set, get) => ({
                     } else if (res.type === 'SET_VARIABLE') {
                         set(state => ({ variables: { ...state.variables, [res.targetId]: res.value } }));
                     } else if (res.type === 'MOVE_SPRITE') {
-                        const [x, y] = (res.value || '0,0').split(',').map(Number);
+                        const parts = (res.value || '0,0').split(',');
+                        const x = evaluateExpression(parts[0], get());
+                        const y = evaluateExpression(parts[1], get());
                         get().moveSprite(res.targetId, x, y);
                     } else if (res.type === 'SHOW_SPRITE') {
                         get().setSpriteVisibility(res.targetId, true);
@@ -246,8 +283,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                         get().setSpriteVisibility(res.targetId, false);
                     } else if (res.type === 'INSTANTIATE_SPRITE') {
                         const [newId, xStr, yStr] = (res.value || '').split(':');
-                        const x = parseInt(xStr || '0');
-                        const y = parseInt(yStr || '0');
+                        const x = evaluateExpression(xStr, get());
+                        const y = evaluateExpression(yStr, get());
                         get().instantiateSprite(res.targetId, newId, x, y);
                     }
                 }

@@ -1,15 +1,166 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Code, Trash2, Plus, ArrowRight } from 'lucide-react';
 
 const ACTIONS = ['MOVE', 'LOOK', 'TAKE', 'OPEN', 'CLOSE', 'USE', 'SPEAK', 'HIT'];
 const CONDITIONS = ['PLAYER_HAS_ITEM', 'PLAYER_LACKS_ITEM', 'VARIABLE_EQUALS'];
 const RESULTS = ['SHOW_TEXT', 'PLAY_ANIMATION', 'GIVE_ITEM', 'TAKE_ITEM', 'REMOVE_ITEM', 'MOVE_TO_ROOM', 'SET_VARIABLE', 'MOVE_SPRITE', 'SHOW_SPRITE', 'HIDE_SPRITE', 'INSTANTIATE_SPRITE'];
 
+const ExpressionInput = ({ value, onChange, placeholder, sprites, hotspots, items }: {
+    value: string;
+    onChange: (val: string) => void;
+    placeholder?: string;
+    sprites: any[];
+    hotspots: any[];
+    items: any[];
+}) => {
+    const [cursorWord, setCursorWord] = useState('');
+    const [cursorIndex, setCursorIndex] = useState(0);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [suggestionsCoords, setSuggestionsCoords] = useState({ top: 0, left: 0 });
+    const [selectedIndex, setSelectedIndex] = useState(0);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    const getCaretCoordinates = (element: HTMLTextAreaElement, position: number) => {
+        const div = document.createElement('div');
+        const style = window.getComputedStyle(element);
+        for (const prop of Array.from(style)) {
+            if (prop.startsWith('font') || prop.startsWith('padding') || prop === 'line-height' || prop === 'letter-spacing' || prop === 'text-transform') {
+                div.style[prop as any] = style[prop as any];
+            }
+        }
+        div.style.position = 'absolute';
+        div.style.opacity = '0';
+        div.style.pointerEvents = 'none';
+        div.style.whiteSpace = 'pre-wrap';
+        div.style.wordBreak = 'break-all';
+        div.style.width = style.width;
+        div.style.top = '0';
+        div.style.left = '0';
+        containerRef.current?.appendChild(div);
+        div.textContent = element.value.slice(0, position);
+        const span = document.createElement('span');
+        span.textContent = '|';
+        div.appendChild(span);
+        const { offsetTop, offsetLeft } = span;
+        containerRef.current?.removeChild(div);
+        return { top: offsetTop, left: offsetLeft };
+    };
+
+    const handleInput = (e: any) => {
+        const val = e.target.value;
+        const pos = e.target.selectionStart;
+        onChange(val);
+        setCursorIndex(pos);
+
+        const leftText = val.slice(0, pos);
+        const currentWordMatch = leftText.match(/([a-zA-Z0-9_-]+)$/);
+        const currentWord = currentWordMatch ? currentWordMatch[1] : '';
+        setCursorWord(currentWord);
+        setShowSuggestions(currentWord.length > 0);
+
+        if (containerRef.current) {
+            const coords = getCaretCoordinates(e.target, pos);
+            setSuggestionsCoords({ top: coords.top + 16, left: coords.left });
+        }
+    };
+
+    const insertSuggestion = (suggestion: string) => {
+        const left = value.slice(0, cursorIndex - cursorWord.length);
+        const right = value.slice(cursorIndex);
+        const newValue = left + suggestion + right;
+        onChange(newValue);
+        setCursorWord('');
+        setShowSuggestions(false);
+    };
+
+    useEffect(() => {
+        setSelectedIndex(0);
+    }, [cursorWord]);
+
+    const filteredSuggestions = [
+        ...sprites.map(s => (s.objectId || s.id)),
+        ...hotspots.map(h => (h.objectId || h.action || h.id)),
+        ...items.map(i => i.name || i.id)
+    ]
+        .map(s => String(s).toUpperCase())
+        .filter((v, i, a) => a.indexOf(v) === i)
+        .filter(s => cursorWord && s.startsWith(cursorWord.toUpperCase()));
+
+    const renderHighlightedText = () => {
+        const tokens = value.split(/([a-zA-Z0-9_-]+)/g);
+        return tokens.map((token, index) => {
+            const upper = token.toUpperCase();
+            if (sprites.some(s => (s.objectId || s.id).toUpperCase() === upper)) {
+                return <span key={index} className="text-blue-400 font-bold">{token}</span>;
+            }
+            if (hotspots.some(h => (h.objectId || h.action || h.id).toUpperCase() === upper)) {
+                return <span key={index} className="text-yellow-400 font-bold">{token}</span>;
+            }
+            if (items.some(i => i.id?.toUpperCase() === upper || i.name?.toUpperCase() === upper)) {
+                return <span key={index} className="text-green-400 font-bold">{token}</span>;
+            }
+            return <span key={index} className="text-gray-300">{token}</span>;
+        });
+    };
+
+    return (
+        <div ref={containerRef} className="relative font-mono text-xs w-full h-12">
+            <div className="absolute inset-0 p-1 pointer-events-none break-all whitespace-pre-wrap">
+                {renderHighlightedText()}
+            </div>
+            <textarea
+                className="absolute inset-0 p-1 bg-transparent border border-gray-700 text-transparent caret-white outline-none rounded resize-none w-full h-full"
+                value={value}
+                onChange={handleInput}
+                onSelect={(e: any) => setCursorIndex(e.target.selectionStart)}
+                placeholder={placeholder}
+                onKeyDown={(e) => {
+                    if (!showSuggestions || filteredSuggestions.length === 0) return;
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        setSelectedIndex(prev => (prev + 1) % filteredSuggestions.length);
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        setSelectedIndex(prev => (prev - 1 + filteredSuggestions.length) % filteredSuggestions.length);
+                    } else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        insertSuggestion(filteredSuggestions[selectedIndex]);
+                    } else if (e.key === 'Escape') {
+                        setShowSuggestions(false);
+                    }
+                }}
+            />
+            {showSuggestions && filteredSuggestions.length > 0 && (
+                <ul
+                    className="absolute z-50 bg-gray-900 border border-gray-700 rounded shadow-lg max-h-32 overflow-y-auto w-48 mt-1"
+                    style={{ top: `${suggestionsCoords.top}px`, left: `${suggestionsCoords.left}px` }}
+                >
+                    {filteredSuggestions.map((s, idx) => (
+                        <li
+                            key={idx}
+                            className={`p-1 cursor-pointer text-xs flex justify-between uppercase ${idx === selectedIndex ? 'bg-blue-900/40 border border-blue-500' : 'hover:bg-gray-800'}`}
+                            onClick={() => insertSuggestion(s)}
+                            onMouseEnter={() => setSelectedIndex(idx)}
+                        >
+                            <span className={
+                                sprites.some(sp => (sp.objectId || sp.id).toUpperCase() === s) ? "text-blue-400" :
+                                    hotspots.some(h => (h.objectId || h.action || h.id).toUpperCase() === s) ? "text-yellow-400" : "text-green-400"
+                            }>{s}</span>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+};
+
 export default function RoomEventsPanel({ roomId, projectId }: { roomId: string; projectId: string }) {
     const [events, setEvents] = useState<any[]>([]);
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
     const [roomSprites, setRoomSprites] = useState<any[]>([]);
+    const [roomHotspots, setRoomHotspots] = useState<any[]>([]);
+    const [allSuggestions, setAllSuggestions] = useState<string[]>([]);
     const [projectItems, setProjectItems] = useState<any[]>([]);
 
     useEffect(() => {
@@ -33,8 +184,18 @@ export default function RoomEventsPanel({ roomId, projectId }: { roomId: string;
         if (res.ok) {
             const data = await res.json();
             setRoomSprites(data.sprites || []);
+            setRoomHotspots(data.hotspots || []);
         }
     };
+
+    useEffect(() => {
+        const spriteIds = roomSprites.map((s: any) => s.objectId || s.id).filter(Boolean);
+        const hotspotIds = roomHotspots.map((h: any) => h.objectId || h.action || h.id).filter(Boolean);
+        const combined = [...spriteIds, ...hotspotIds]
+            .map(s => String(s).toUpperCase())
+            .filter((v, i, a) => a.indexOf(v) === i);
+        setAllSuggestions(combined);
+    }, [roomSprites, roomHotspots]);
 
     const createEvent = async () => {
         const res = await fetch(`/api/rooms/${roomId}/events`, { method: 'POST' });
@@ -112,6 +273,7 @@ export default function RoomEventsPanel({ roomId, projectId }: { roomId: string;
                                 <div>
                                     <label className="text-[10px] text-gray-500 block">TARGET (ObjectId or Prefix)</label>
                                     <input
+                                        list="targets-list"
                                         className="w-full bg-gray-950 border border-gray-700 text-white rounded p-1 outline-none text-sm uppercase"
                                         value={activeEvent.targetId || ''}
                                         onChange={(e) => updateEvent(activeEvent.id, { targetId: e.target.value })}
@@ -122,6 +284,7 @@ export default function RoomEventsPanel({ roomId, projectId }: { roomId: string;
                                     <div>
                                         <label className="text-[10px] text-gray-500 block">WITH (Sprite, Hotspot or Prefix)</label>
                                         <input
+                                            list="targets-list"
                                             className="w-full bg-gray-950 border border-gray-700 text-white rounded p-1 outline-none text-sm uppercase"
                                             value={activeEvent.secondaryTargetId || ''}
                                             onChange={(e) => updateEvent(activeEvent.id, { secondaryTargetId: e.target.value })}
@@ -171,6 +334,7 @@ export default function RoomEventsPanel({ roomId, projectId }: { roomId: string;
                                             </button>
                                         </div>
                                         <input
+                                            list="targets-list"
                                             className="bg-gray-900 border border-gray-700 text-white rounded p-1 outline-none text-xs w-full"
                                             value={cond.targetId || ''}
                                             onChange={(e) => {
@@ -266,6 +430,7 @@ export default function RoomEventsPanel({ roomId, projectId }: { roomId: string;
                                             </select>
                                         ) : (
                                             <input
+                                                list="targets-list"
                                                 className="bg-gray-900 border border-gray-700 text-white rounded p-1 outline-none text-xs w-full"
                                                 value={res.targetId || ''}
                                                 onChange={(e) => {
@@ -297,7 +462,7 @@ export default function RoomEventsPanel({ roomId, projectId }: { roomId: string;
                                                 <div>
                                                     <label className="text-[9px] text-gray-500 uppercase">X</label>
                                                     <input
-                                                        type="number"
+                                                        type="text"
                                                         className="bg-gray-900 border border-gray-700 text-white rounded p-1 outline-none text-[10px] w-full"
                                                         value={(res.value || '').split(':')[1] || ''}
                                                         onChange={(e) => {
@@ -314,7 +479,7 @@ export default function RoomEventsPanel({ roomId, projectId }: { roomId: string;
                                                 <div>
                                                     <label className="text-[9px] text-gray-500 uppercase">Y</label>
                                                     <input
-                                                        type="number"
+                                                        type="text"
                                                         className="bg-gray-900 border border-gray-700 text-white rounded p-1 outline-none text-[10px] w-full"
                                                         value={(res.value || '').split(':')[2] || ''}
                                                         onChange={(e) => {
@@ -333,14 +498,16 @@ export default function RoomEventsPanel({ roomId, projectId }: { roomId: string;
                                                 </div>
                                             </div>
                                         ) : (res.type === 'SHOW_TEXT' || res.type === 'SET_VARIABLE' || res.type === 'MOVE_SPRITE') && (
-                                            <textarea
-                                                className="bg-gray-900 border border-gray-700 text-white rounded p-1 outline-none text-xs w-full h-12 resize-none"
+                                            <ExpressionInput
                                                 value={res.value || ''}
-                                                onChange={(e) => {
+                                                onChange={(val) => {
                                                     const newRes = [...activeEvent.results];
-                                                    newRes[idx].value = e.target.value;
+                                                    newRes[idx].value = val;
                                                     updateEvent(activeEvent.id, { results: newRes });
                                                 }}
+                                                sprites={roomSprites}
+                                                hotspots={roomHotspots}
+                                                items={projectItems}
                                                 placeholder={res.type === 'MOVE_SPRITE' ? "Coordinates (e.g. 150,200)" : "Text or value"}
                                             />
                                         )}
@@ -355,6 +522,9 @@ export default function RoomEventsPanel({ roomId, projectId }: { roomId: string;
                     </div>
                 )}
             </div>
+            <datalist id="targets-list">
+                {allSuggestions.map(s => <option key={s} value={s} />)}
+            </datalist>
         </div >
     );
 }
