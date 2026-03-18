@@ -238,6 +238,30 @@ export default function RoomEditor({ params }: { params: { projectId: string; ro
         fetchRoom();
     };
 
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (!selectedHotspot) return;
+
+            // Ignore if typing in inputs or textareas
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+            if (e.key === 'Delete') {
+                const isSprite = room?.sprites?.some((s: any) => s.id === selectedHotspot);
+                if (isSprite) {
+                    deleteSprite(selectedHotspot);
+                } else {
+                    const isHotspot = room?.hotspots?.some((h: any) => h.id === selectedHotspot);
+                    if (isHotspot) {
+                        deleteHotspot(selectedHotspot);
+                    }
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [selectedHotspot, room?.sprites, room?.hotspots]);
+
     const updateMousePos = (e: React.PointerEvent) => {
         if (!canvasRef.current || interaction) return;
         const rect = canvasRef.current.getBoundingClientRect();
