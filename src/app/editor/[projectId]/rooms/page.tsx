@@ -13,7 +13,10 @@ export default function RoomsPage({ params }: { params: { projectId: string } })
 
     useEffect(() => {
         fetchRooms();
-    }, []);
+        // Clear last visited room when visiting the list deliberately
+        localStorage.removeItem(`lastRoomId_${params.projectId}`);
+    }, [params.projectId]);
+
 
     const fetchRooms = async () => {
         const res = await fetch(`/api/projects/${params.projectId}/rooms`);

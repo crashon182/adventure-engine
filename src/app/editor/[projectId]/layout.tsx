@@ -1,5 +1,5 @@
 'use client';
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ArrowLeft, Image as ImageIcon, Map, Layers, Code, Play, ChevronLeft, ChevronRight, Settings } from 'lucide-react';
@@ -7,9 +7,30 @@ import { ArrowLeft, Image as ImageIcon, Map, Layers, Code, Play, ChevronLeft, Ch
 export default function EditorLayout({ children, params }: { children: ReactNode, params: { projectId: string } }) {
     const pathname = usePathname();
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const [lastRoomId, setLastRoomId] = useState<string | null>(null);
+
+    // Parse room ID from path
+    const pathParts = pathname.split('/');
+    const isInsideRoom = pathParts[3] === 'rooms' && pathParts[4];
+    const currentRoomId = isInsideRoom ? pathParts[4] : null;
+
+    // Load from localStorage on mount and when projectId changes
+    useEffect(() => {
+        const saved = localStorage.getItem(`lastRoomId_${params.projectId}`);
+        setLastRoomId(saved);
+    }, [params.projectId, pathname]); // Update when pathname changes to sync updates
+
+    // Save to localStorage when inside a room
+    useEffect(() => {
+        if (currentRoomId) {
+            localStorage.setItem(`lastRoomId_${params.projectId}`, currentRoomId);
+            setLastRoomId(currentRoomId);
+        }
+    }, [currentRoomId, params.projectId]);
 
     // Hide default sidebar if we are in a specific room editor or logic view
     const isRoomEditor = pathname.includes('/rooms/') && pathname.split('/').length > 5;
+
 
     return (
         <div className="flex flex-col h-screen bg-gray-900 text-white overflow-hidden">
@@ -50,13 +71,14 @@ export default function EditorLayout({ children, params }: { children: ReactNode
                         <nav className="flex-1 overflow-y-auto py-2">
                             <div className={`px-3 space-y-1 ${isCollapsed ? 'flex flex-col items-center' : ''}`}>
                                 <Link
-                                    href={`/editor/${params.projectId}/rooms`}
+                                    href={lastRoomId ? `/editor/${params.projectId}/rooms/${lastRoomId}` : `/editor/${params.projectId}/rooms`}
                                     className={`flex items-center gap-3 py-2 rounded-md transition-colors ${isCollapsed ? 'px-2 justify-center' : 'px-3'} ${pathname.includes('/rooms') ? 'bg-gray-700 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
                                     title={isCollapsed ? 'Rooms Outline' : ''}
                                 >
                                     <Map size={18} />
                                     {!isCollapsed && <span>Rooms Outline</span>}
                                 </Link>
+
                                 <Link
                                     href={`/editor/${params.projectId}/map`}
                                     className={`flex items-center gap-3 py-2 rounded-md transition-colors ${isCollapsed ? 'px-2 justify-center' : 'px-3'} ${pathname.includes('/map') ? 'bg-gray-700 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}

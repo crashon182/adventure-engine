@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { ImageIcon, Music, FileImage, UploadCloud } from 'lucide-react';
+import { ImageIcon, Music, FileImage, UploadCloud, Trash2 } from 'lucide-react';
+
 
 type Asset = {
     id: string;
@@ -23,6 +24,26 @@ export default function AssetManager({ params }: { params: { projectId: string }
         const res = await fetch(`/api/projects/${params.projectId}/assets`);
         if (res.ok) setAssets(await res.json());
     };
+
+    const handleDelete = async (assetId: string) => {
+        if (!confirm('Are you sure you want to delete this asset?')) return;
+
+        try {
+            const res = await fetch(`/api/assets/${assetId}`, {
+                method: 'DELETE',
+            });
+            const data = await res.json();
+            if (res.ok) {
+                fetchAssets(); // Refresh list
+            } else {
+                alert(data.error || 'Failed to delete asset');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('An error occurred while deleting the asset');
+        }
+    };
+
 
     const handleUpload = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -102,7 +123,15 @@ export default function AssetManager({ params }: { params: { projectId: string }
                                 <div className="absolute top-2 right-2 bg-black/60 px-2 py-1 rounded text-xs">
                                     {asset.type}
                                 </div>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleDelete(asset.id); }}
+                                    className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-400 bg-black/70 p-1.5 rounded-full absolute top-2 left-2 transition-all hover:scale-110 shadow-md backdrop-blur-sm"
+                                    title="Delete Asset"
+                                >
+                                    <Trash2 size={14} />
+                                </button>
                             </div>
+
                             <div className="p-3 text-sm truncate" title={asset.name}>
                                 {asset.name}
                             </div>

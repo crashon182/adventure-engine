@@ -1,7 +1,11 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { Trash2, UploadCloud, LayoutTemplate, Workflow, Eye, EyeOff, Package } from 'lucide-react';
+import { Trash2, UploadCloud, LayoutTemplate, Workflow, Eye, EyeOff, Package, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
+
+
 import RoomEventsPanel from '@/components/editor/RoomEventsPanel';
+
 
 export default function RoomEditor({ params }: { params: { projectId: string; roomId: string } }) {
     const [room, setRoom] = useState<any>(null);
@@ -433,8 +437,14 @@ export default function RoomEditor({ params }: { params: { projectId: string; ro
         <div className="flex flex-col h-full text-white bg-black select-none" id="main-editor-container">
             {/* Top Bar for Tabs */}
             <div className="h-12 border-b border-gray-800 flex items-center px-4 bg-gray-950 shrink-0 gap-4">
+                <Link href={`/editor/${params.projectId}/rooms`} className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors mr-2">
+                    <ArrowLeft size={14} /> Volver
+                </Link>
+                <div className="h-4 w-[1px] bg-gray-700 mr-2" />
+
                 <button
                     onClick={() => setActiveTab('visual')}
+
                     className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold transition-all ${activeTab === 'visual' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'}`}
                 >
                     <LayoutTemplate size={16} /> Visual Designer
